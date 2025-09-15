@@ -1,13 +1,22 @@
-up:
-	docker compose up -d
+up-cluster:
+	cd cluster && docker compose up -d
 
-down:
-	@docker compose down
+up-client:
+	cd client && docker compose up -d
 
-run:
-	python main.py 30
+down-cluster:
+	@cd cluster && docker compose down
 
-run-lag:
-	python main_lag.py 30
+down-client:
+	@cd client && docker compose down
 
-.PHONY: up down run run-lag
+run-cluster:
+	cd cluster && python main.py 30
+
+run-cluster-lag:
+	cd cluster && python main_lag.py 30
+
+run-client:
+	docker exec -it spark-master spark-submit --master spark://spark-master:7077 --deploy-mode client /opt/spark-apps/main.py 20
+
+.PHONY: up-cluster up-client down-cluster down-client run-cluster run-cluster-lag run-client
