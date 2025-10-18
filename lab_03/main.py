@@ -1,4 +1,6 @@
-from pyspark.sql import SparkSession
+from pprint import pprint
+from pyspark.sql import SparkSession, functions as f
+from pyspark.sql.types import StringType
 import re
 
 
@@ -7,20 +9,30 @@ if __name__ == "__main__":
 
     df = spark.read.text("data/data.txt", lineSep='\n\n')
 
-    # TODO: delete
-    print(df.count())
-    df.show(50)
+    def clean_text(text):
+        cleaned = re.sub(
+            '''\\b[\w\d]{1,3}\\b|[,\(\)\.\d:\\-\+"'\[\]\{\}\*\$\%\#\@\!\?\~`=/;]*''',
+            '',
+            str(text).replace('\n', '')
+        )
 
-    filtered_rdd = (df.rdd
-                   .map(lambda x: re.
-                        sub('''\\b[\w\d]{1,3}\\b|[,\(\)\.\d:\\-\+"'\[\]\{\}\*\$\%\#\@\!\?\~`=/;]*''',
-                            '',
-                            str(x['value']).replace('\n', '')).
-                        replace('  ', ' ').
-                        replace('  ', ' '))
-                   .filter(lambda x: str(x).replace(' ', '') != ''))
+        return re.sub(r'\s+', ' ', cleaned).strip()
 
-    # TODO: delete
-    print(filtered_rdd.take(100))
+    clean_text_udf = f.udf(clean_text, StringType())
+
+    words_df = (df
+                .withColumn("cleaned_text", clean_text_udf(f.col("value")))
+                .drop(f.col("value"))
+                .filter(f.col("cleaned_text") != "")
+                .withColumn("words", f.split(f.col("cleaned_text"), " "))
+                .drop(f.col("cleaned_text"))
+                .withColumn("word", f.explode(f.col("words")))
+                .drop(f.col("words"))
+                .filter(f.col("word") != ""))
+
+    pprint(words_df.rdd
+           .map(lambda row: (row['word'], 1))
+           .reduceByKey(lambda x, y: x + y)
+           .takeOrdered(10, lambda row: -row[1]))
 
     spark.stop()
