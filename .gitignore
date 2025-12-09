@@ -210,3 +210,5 @@ __marimo__/
 .idea
 results
 data
+.DS_Store
+tmp
